@@ -6,35 +6,37 @@ using System.Net.NetworkInformation;
 using System.ComponentModel;
 using System.Threading;
 
-namespace SocketTcpClient {
-    class Program {
+namespace SocketTcpClient
+{
+    class Program
+    {
         static int port = 8805;                                                                                 // порт сервера
         static string address = "127.0.0.1";                                                                // адрес сервера
         //static string address = "192.0.120.9";                                                                // адрес сервера
 
-        public class asSoc
+        public class chat_socket
         {
             Socket handler;
+            public Thread t1 = null;
+            public Thread t2 = null;
 
-            public asSoc(IPEndPoint e)
+            public chat_socket(IPEndPoint e)
             {
                 handler = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
                 handler.Connect(e);
+                t1 = new Thread(Sender);
+                t2 = new Thread(Listener);
+                t1.Start();
+                t2.Start();
             }
 
             public void Sender()
             {
+                string msg;
                 while (handler.Connected)
                 {
-                    //Console.Write("\n>> ");
-                    string message = Console.ReadLine();
-                    byte[] data = Encoding.Unicode.GetBytes(message);
-                    if (message == "-close")
-                    {
-                        handler.Shutdown(SocketShutdown.Both);
-                        handler.Close();
-                    }
-                    handler.Send(data);
+                    msg=Console.ReadLine();
+                    if(handler.Connected) handler.Send(Encoding.Unicode.GetBytes(msg));
                 }
             }
             public void Listener()
@@ -48,12 +50,16 @@ namespace SocketTcpClient {
                     {
                         bytes = handler.Receive(data, data.Length, 0);
                         builder.Append(Encoding.Unicode.GetString(data, 0, bytes));
-                        
                     } while (handler.Available > 0);
-                    if(builder.ToString().Length>0)
+                    if(builder.ToString()== "dc785b5cd340896d05ad96b6b4f876bd") //to close
+                    {
+                        handler.Shutdown(SocketShutdown.Both);
+                        t1.Abort();
+                        handler.Close();
+                    }
+                    else if (builder.ToString().Length > 0)
                         Console.WriteLine("<< " + builder.ToString());
                     Thread.Sleep(100);
-
                 }
             }
         }
@@ -67,28 +73,26 @@ namespace SocketTcpClient {
             foreach (IPAddress ip in host1.AddressList)
                 Console.WriteLine(ip.ToString());
 
-            asSoc socket = null;
-            //while (ENDCHAR == 'R' || ENDCHAR == 'r' || ENDCHAR == 'к' || ENDCHAR == 'К')            {
-            try
+            chat_socket socket = null;
+            while (ENDCHAR == 'R' || ENDCHAR == 'r' || ENDCHAR == 'к' || ENDCHAR == 'К')
             {
-                IPEndPoint ipPoint = new IPEndPoint(IPAddress.Parse(address), port);
-                socket = new asSoc(ipPoint);
-                Console.Write("Connected to server: " + ipPoint.ToString() + "\n");
-                Thread t1 = new Thread(socket.Sender);
-                t1.Start();
-                //listener
-                Thread t2 = new Thread(socket.Listener);
-                t2.Start();
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message);
-            }
-            /*
+                try
+                {
+                    IPEndPoint ipPoint = new IPEndPoint(IPAddress.Parse(address), port);
+                    socket = new chat_socket(ipPoint);
+                    Console.Write("Connected to server: " + ipPoint.ToString() + "\n");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine("\n!!! "+ex.Message + "\n");
+                }
+                socket.t1.Join();
+                socket.t2.Join();
                 Console.WriteLine("\nSocet closed. Press 'R' to reconnect or any key to exit.\n");
                 ENDCHAR = Console.ReadKey().KeyChar;
                 Console.WriteLine("\n");
-            */
+
+            }
         }
     }
 }
